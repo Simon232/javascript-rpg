@@ -32,8 +32,13 @@ var app = {
 	},
 	canvas:{
 		_DOMObject:null,
+		_DOMObjectContext:null,
 		_DOMObjectHeight:0,
 		_DOMObjectWidth:0,
+		ctx:function() {
+			if(!app.canvas._DOMObjectContext) app.canvas._DOMObjectContext = app.canvas._DOMObject.getContext("2d");
+			return app.canvas._DOMObjectContext;
+		},
 		get:function() {
 			return app.canvas._DOMObject;
 		},
@@ -58,12 +63,19 @@ var app = {
 			return w;
 		}
 	},
+	console:{
+		logs:[],
+		log:function(a,b) {
+			logs.push(b);
+		}
+	},
 	entities:{
 		chars:[],
 		npcs:[],
-		addChar:function() {
+		addChar:function(o) {
 			app.entities.chars.push({
-			//	sprite:new app.prototypes.Sprite();
+				
+				sprite:new app.prototypes.Sprite()
 			});
 		},
 		addNpc:function() {
@@ -91,7 +103,7 @@ var app = {
 			app.canvas.set(canvas);
 		});
 
-		app.entities.addChar();
+	//	app.entities.addChar();
 
 		app.main();
 	},
@@ -103,7 +115,7 @@ var app = {
 		Entity:function(a,b,c,d,e) {
 			
 		},
-		Sprite:function(url,size,speed,frames,dir,canvas) {
+		Sprite:function(url,size,speed,pos,frames,dir,canvas) {
 			this._index = 0;
 			this.canvas = canvas || app.canvas.get();
 			this.dir = dir || 'hor'
@@ -133,7 +145,33 @@ var app = {
 			}
 		}
 	},
-	resources:{}
+	resources:{
+		images:{},
+		sounds:{},
+		load:function(kind,url,fn) {
+			if(typeof url == 'function') {
+				fn = url;
+				url = kind;
+				kind = 'image';
+			}
+			if(kind == 'image') {
+				if(url instanceof Array) {
+					console.log("an array of images was detected.");
+				} else {
+					app.resources.images[url] = new Image();
+					app.resources.images[url].src = url;
+					app.resources.images[url].addEventListener('load',function() {
+						fn.call(this);
+					});
+					app.resources.images[url].addEventListener('error',function(e) {
+						app.console.log("Error","Could not load image with url <"+url+">\n\tResponse: ("+e+").");
+					});
+				}
+			} else if(kind == 'sound') {
+
+			}
+		}
+	}
 };
 
 window.App = app._api;
