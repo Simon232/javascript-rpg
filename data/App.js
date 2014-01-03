@@ -27,7 +27,14 @@ var app = {
 			tick(elem);
 		},
 		render:function() {
-
+			for(var i=0;i<app.entities.chars.length;i++) {
+				app.entities.chars[i].sprite.render(app.canvas.ctx());
+			}
+		},
+		update:function() {
+			for(var i=0;i<app.entities.chars.length;i++) {
+				app.entities.chars[i].sprite.update(app.anim.time.diff);
+			}
 		}
 	},
 	canvas:{
@@ -73,10 +80,22 @@ var app = {
 		chars:[],
 		npcs:[],
 		addChar:function(o) {
-			app.entities.chars.push({
-				
-				sprite:new app.prototypes.Sprite()
-			});
+			var data = {
+				type:'player',
+				src:'data/char/sprite_armour_default.png',
+				pos:[0,0],
+				width:0,
+				height:0,
+				speed:16,
+			};
+			if(typeof o == 'object') for(var i in o) data[i] = o[i];
+			if(!data.frames && app.resources.images[data.src]) {
+				var n = Math.floor(app.resources.images[data.src].width / data.width);
+				data.frames = [];
+				for(var i=0;i<n;i++) data.frames[i] = i;
+			}
+			data.sprite = new app.prototypes.Sprite(data.src,[data.width,data.height],data.speed,data.pos,data.frames)
+			app.entities.chars.push(data);
 		},
 		addNpc:function() {
 
@@ -103,18 +122,20 @@ var app = {
 			app.canvas.set(canvas);
 		});
 
-	//	app.entities.addChar();
-
-		app.main();
+		app.resources.load(['data/char/sprite_armour_default.png'],function() {
+			app.entities.addChar({
+				width:50,
+				height:100,
+				speed:16
+			});
+			app.main();
+		});
 	},
 	main:function() {
 		app.anim.render();
 		app.anim.frame(app.main);
 	},
 	prototypes:{
-		Entity:function(a,b,c,d,e) {
-			
-		},
 		Sprite:function(url,size,speed,pos,frames,dir,canvas) {
 			this._index = 0;
 			this.canvas = canvas || app.canvas.get();
@@ -138,7 +159,7 @@ var app = {
 				}
 				if(this.dir == 'hor' || this.dir == 'horizontal') x += frame*this.size[0];
 				else y += frame*this.size[1];
-				ctx.drawImage(app.resources[this.src],x,y,this.size[0],this.size[1],0,0,this.size[0],this.size[1]);
+				ctx.drawImage(app.resources.images[this.src],x,y,this.size[0],this.size[1],0,0,this.size[0],this.size[1]);
 			},
 			this.update = function(dt) {
 				this._index += this.speed*dt;
@@ -156,7 +177,23 @@ var app = {
 			}
 			if(kind == 'image') {
 				if(url instanceof Array) {
-					console.log("an array of images was detected.");
+					var parsed = 0;
+					url.forEach(function(src) {
+						app.resources.images[src] = new Image();
+						app.resources.images[src].src = src;
+						app.resources.images[src].addEventListener('load',function() {
+							parsed++;
+							callback();
+						});
+						app.resources.images[src].addEventListener('error',function(e) {
+							parsed++;
+							app.console.log("Error","Could not load image with url <"+src+">\n\tResponse: ("+e+").");
+							callback();
+						});
+					});
+					function callback() {
+						if(parsed == url.length) fn.call();
+					}
 				} else {
 					app.resources.images[url] = new Image();
 					app.resources.images[url].src = url;
@@ -168,7 +205,7 @@ var app = {
 					});
 				}
 			} else if(kind == 'sound') {
-
+				//TODO: implement sound resource loading
 			}
 		}
 	}
