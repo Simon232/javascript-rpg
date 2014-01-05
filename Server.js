@@ -26,3 +26,19 @@ var fs = require('fs'),server = require('http').createServer(function(req,res) {
 		});
 	}
 }).listen(8000),io = require('/usr/local/lib/node_modules/socket.io').listen(server);
+
+var players = [];
+io.sockets.on('connection',function(socket) {
+	socket.emit('welcome',{'status':'200'});
+	socket.on('request',function(req) {
+		if(req == 'player_data') {
+			socket.emit('player_data',{data:players});
+		}
+	});
+	socket.on('player_data',function(res) {
+		console.log("SOCKET DATA RECEIVED AN OBJECT OF TYPE:");
+		console.log(typeof res);
+		console.log("With ID: "+res.id);
+		console.log(res);
+	});
+});

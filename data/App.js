@@ -85,40 +85,85 @@ var app = {
 		}
 	},
 	entities:{
-		chars:{length:0},
+		chars:{length:0}, ////--
 		npcs:[],
 		addChar:function(o) {
 			var data = {
-				id:'player'+app.entities.chars.length,
-				type:'player',
-				src:'data/char/sprite_armour_default.png',
-				pos:[0,0],
-				width:0,
-				height:0,
-				speed:10,
+				frames:null,
 				frequency:16,
+				height:0,
+				id:'player'+app.entities.chars.length,
+				index:app.entities.chars.length,
+				name:'undefined',
+				pos:[0,0],
+				speed:10,
+				sprite:null,
+				src:'data/char/sprite_armour_default.png',
+				type:'player',
+				width:0,
 				x:0,
 				y:0
 			};
+			var Sprite = function(url,size,speed,pos,frames,dir) {
+				this._index = 0;
+				this.dir = dir || 'hor'
+				this.frames = frames;
+				this.pos = pos || [0,0];
+				this.size = size;
+				this.speed = speed;
+				this.reversed = false;
+				this.run = false;
+				this.src = url;
+				this.render = function(ctx) {
+					var max = this.frames.length;
+					var idx = Math.floor(this._index);
+					var frame = this.frames[idx % max];
+					var x = this.pos[0];
+					var y = this.pos[1];
+					if(!this.run) {
+						if(this.reversed) frame = Math.floor(app.resources.images[this.src].width / this.size[0])-1;
+						else frame = 0;
+					}
+					if(this.dir == 'hor' || this.dir == 'horizontal') x += frame*this.size[0];
+					else y += frame*this.size[1];
+					ctx.drawImage(app.resources.images[this.src],x,y,this.size[0],this.size[1],app.canvas.width()/2-this.size[0]/2,app.canvas.height()/2-this.size[1]/2,this.size[0],this.size[1]);
+				};
+				this.update = function(dt) {
+					this._index += this.speed*(dt/1000);
+				};
+			}
 			if(typeof o == 'object') for(var i in o) data[i] = o[i];
 			if(!data.frames && app.resources.images[data.src]) {
 				var n = Math.floor(app.resources.images[data.src].width / data.width);
 				data.frames = [];
 				for(var i=0;i<n;i++) data.frames[i] = i;
 			}
-			data.sprite = new app.prototypes.Sprite(data.src,[data.width,data.height],data.frequency,data.pos,data.frames);
+		//	data.sprite = new app.prototypes.Sprite(data.src,[data.width,data.height],data.frequency,data.pos,data.frames);
+			data.sprite = new Sprite(data.src,[data.width,data.height],data.frequency,data.pos,data.frames);
 			app.entities.chars[data.id] = data;
-			app.entities.chars.length++;
+			app.entities.length++;
 			return {
-				addInput:function(fn) {
+				mapInput:function(fn) {
 					var nFn = fn.bind(app.entities.chars[data.id]);
 					app.input.rules.push(nFn);
 				}
 			};
 		},
-		addNpc:function() {
-
-		}
+		main:function() {
+			return {
+				frames:[0,1,2,3,4],
+				frequency:13,
+				height:100,
+				id:'main',
+				index:0,
+				name:'undefined',
+				pos:[0,200],
+				speed:150,
+				width:50,
+				x:0,
+				y:0
+			}
+		},
 	},
 	events:{
 		keydown:[],
@@ -163,18 +208,7 @@ var app = {
 		});
 
 		app.resources.load(['data/char/sprite_armour_default.png'],function() {
-			app.entities.addChar({
-				id:'main',
-				type:'player',
-				x:0,
-				y:0,
-				width:50,
-				height:100,
-				speed:75,
-				frequency:13,
-				frames:[0,1,2,3,4],
-				pos:[0,200]
-			}).addInput(function() {
+			app.entities.addChar(app.entities.main()).mapInput(function() {
 				if(app.input.key([40,38,37,39])) {
 					this.sprite.run = true;
 					this.sprite.reversed = false;
@@ -197,6 +231,7 @@ var app = {
 				} else this.sprite.run = false;
 			});
 
+			app.socket.connect(io);
 			app.main();
 		});
 	},
@@ -298,6 +333,33 @@ var app = {
 			} else if(kind == 'sound') {
 				//TODO: implement sound resource loading
 			}
+		}
+	},
+	socket:{
+		io:null,
+		online:false,
+		port:8000,
+		server:'http://localhost',
+		sockets:[],
+		connect:function(io) {
+			app.socket.io = io.connect(app.socket.server+':'+app.socket.port);
+			app.socket.io.on('welcome',function(res) {
+				var pData = {};
+				for(var i in app.entities.chars) {
+					pData[i] = app.entities.chars[i];
+				}
+				app.socket.online = true;
+				app.socket.io.emit('player_data',app.entities.chars['main']);
+				
+				app.socket.io.emit('request','player_data');
+			});
+			app.socket.io.on('player_data',function(res) {
+				if(res.data instanceof Array) {
+					res.data.forEach(function(player) {
+						app.entities.chars.push(player);
+					});
+				}
+			});
 		}
 	}
 };
